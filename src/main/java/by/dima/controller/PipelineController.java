@@ -51,9 +51,13 @@ public class PipelineController {
 
     @PutMapping(value = "/pipeline")
     public ResponseEntity addPipeline(@RequestBody Pipeline pipeline){
-        Object o = pipelineDAO;
+        if (pipeline != null) {
+            pipelineDAO.createPipeline(pipeline);
 
-        return new ResponseEntity(pipeline, HttpStatus.ACCEPTED);
+            return new ResponseEntity(pipeline, HttpStatus.ACCEPTED);
+        } else {
+            return new ResponseEntity(HttpStatus.BAD_REQUEST);
+        }
     }
 
     @PostMapping(value = "/pipeline/{pipelineName}")

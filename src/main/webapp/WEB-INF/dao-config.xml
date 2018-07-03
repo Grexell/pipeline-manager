@@ -6,7 +6,7 @@
 default-autowire="byName">
     <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
         <property name="driverClassName" value="com.mysql.cj.jdbc.Driver"/>
-        <property name="url" value="jdbc:mysql://localhost:3306/pipeline_manager"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/pipeline_manager?useSSL=false&amp;serverTimezone=UTC"/>
         <property name="username" value="root"/>
         <property name="password" value="123456"/>
         <property name="initialSize" value="5"/>

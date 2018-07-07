@@ -1,16 +1,18 @@
 package by.dima.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.springframework.http.converter.AbstractHttpMessageConverter;
 
 import java.util.IdentityHashMap;
 import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Pipeline extends AbstractEntity {
     private String name;
     private String description;
     private List<Task> tasks;
 
-    public IdentityHashMap<String, String> transitions;
+    private IdentityHashMap<String, String> transitions;
 
     public String getName() {
         return name;

@@ -1,73 +1,44 @@
 package by.dima.model.dao.impl;
 
 import by.dima.model.dao.PipelineDAO;
+import by.dima.model.dao.TaskDAO;
+import by.dima.model.dao.TransitionDAO;
 import by.dima.model.entity.Pipeline;
 import by.dima.model.entity.Task;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcDaoSupport;
+import org.springframework.jdbc.core.simple.SimpleJdbcCall;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 
 @Repository
 public class JdbcPipelineDAO extends NamedParameterJdbcDaoSupport implements PipelineDAO {
 
     private static final String INSERT_PIPELINE_SQL = "INSERT INTO `pipeline_manager`.`pipeline` (`name`, `description`) VALUES (:pipelineName, :pipelineDescription);";
-    private static final String INSERT_TASK_SQL = "insert into task (name, description, id_pipeline, action) VALUES %s;";
-    private static final String GET_PIPELINE_ID_BY_NAME = "select id_pipeline from pipeline where name=:pipelineName;";
+    private static final String UPDATE_PIPELINE_SQL = "update pipeline set name=:pipelineName, description=:pipelineDescription where name=:oldName;";
+    private static final String GET_PIPELINE_BY_NAME = "select * from pipeline where name=:pipelineName;";
+    private static final String DELETE_PIPELINE_BY_NAME = "delete from pipeline where name=:pipelineName;";
 
-    public int identifyPipeline(String name){
-        Map<String, Object> params = new HashMap<>();
+    @Autowired
+    private TaskDAO taskDAO;
 
-        params.put("pipelineName", name);
+    @Autowired
+    private TransitionDAO transitionDAO;
 
-        return getJdbcTemplate().queryForObject(GET_PIPELINE_ID_BY_NAME, Integer.TYPE, params);
+    public void setTaskDAO(TaskDAO taskDAO) {
+        this.taskDAO = taskDAO;
     }
 
-    private String getValuesForTask(String paramNameId, String nameKey, String descriptionKey, String pipelineIdKey, String actionKey){
-        final char delimeter = ',';
-        final char leftValuesLimiter = '(';
-        final char rightValuesLimiter = ')';
-        final char paramNameDescriptor = ':';
-
-        return leftValuesLimiter + paramNameDescriptor + paramNameId + nameKey + delimeter + paramNameDescriptor + paramNameId + descriptionKey + delimeter + + paramNameDescriptor + paramNameId + pipelineIdKey + delimeter + paramNameDescriptor + paramNameId + actionKey + rightValuesLimiter;
-    }
-
-    public void createTasks(Pipeline pipeline) {
-        final char delimeter = ',';
-        final String nameKey = "nameKey";
-        final String descriptionKey = "descriptionKey";
-        final String pipelineIdKey = "pipelineKey";
-        final String actionKey = "actionKey";
-
-        int id = identifyPipeline(pipeline.getName());
-        Map<String, Object> params = new HashMap<>();
-
-        String sql = INSERT_TASK_SQL;
-
-        if (pipeline.getTasks() != null && pipeline.getTasks().size() > 0) {
-            String values = "";
-            List<Task> taskList = pipeline.getTasks();
-            for (int i = 0; i < taskList.size() - 1; i++) {
-                values += getValuesForTask(i + "", nameKey, descriptionKey, pipelineIdKey, actionKey) + delimeter;
-
-                params.put(i + nameKey, taskList.get(i).getName());
-                params.put(i + descriptionKey, taskList.get(i).getDescription());
-                params.put(i + pipelineIdKey, id);
-                params.put(i + actionKey, taskList.get(i).getAction().getType());
-            }
-
-            values += getValuesForTask(taskList.size() - 1 + "", nameKey, descriptionKey, pipelineIdKey, actionKey) + delimeter;
-
-            params.put(taskList.size() - 1 + nameKey, taskList.get(taskList.size() - 1).getName());
-            params.put(taskList.size() - 1 + descriptionKey, taskList.get(taskList.size() - 1).getDescription());
-            params.put(taskList.size() - 1 + pipelineIdKey, id);
-            params.put(taskList.size() - 1 + actionKey, taskList.get(taskList.size() - 1).getAction().getType());
-
-            sql = String.format(sql, values);
-
-            getNamedParameterJdbcTemplate().update(sql, params);
-        }
+    public void setTransitionDAO(TransitionDAO transitionDAO) {
+        this.transitionDAO = transitionDAO;
     }
 
     @Override
@@ -77,25 +48,72 @@ public class JdbcPipelineDAO extends NamedParameterJdbcDaoSupport implements Pip
         params.put("pipelineName", pipeline.getName());
         params.put("pipelineDescription", pipeline.getDescription());
 
+        KeyHolder keyHolder = new GeneratedKeyHolder();
         getNamedParameterJdbcTemplate().update(
                 INSERT_PIPELINE_SQL,
+                new MapSqlParameterSource(params)
+                ,keyHolder);
+
+        pipeline.setId(keyHolder.getKey().intValue());
+
+        if(pipeline.getTasks() != null) {
+            Map<String, Task> nameMap = new HashMap<>();
+
+            List<Task> tasks = pipeline.getTasks();
+            for (int i = 0; i < tasks.size(); i++) {
+                Task task = tasks.get(i);
+                taskDAO.createTask(pipeline, task);
+                nameMap.put(task.getName(), task);
+            }
+
+            if (pipeline.getTransitions() != null) {
+                for (Map.Entry<String, String> transition: pipeline.getTransitions().entrySet()) {
+                    transitionDAO.createTransition(nameMap.get(transition.getKey()).getId(), nameMap.get(transition.getValue()).getId());
+                }
+            }
+        }
+    }
+
+    @Override
+    public void updatePipeline(String name, Pipeline pipeline) {
+        Map<String, Object> params = new HashMap<>();
+
+        params.put("oldName", name);
+        params.put("pipelineName", pipeline.getName());
+        params.put("pipelineDescription", pipeline.getDescription());
+
+        getNamedParameterJdbcTemplate().update(
+                UPDATE_PIPELINE_SQL,
                 params);
-
-        createTasks(pipeline);
     }
 
     @Override
-    public void updatePipeline(Pipeline pipeline) {
+    public void deletePipeline(String name) {
+        Map<String, Object> params = new HashMap<>();
 
-    }
+        params.put("pipelineName", name);
 
-    @Override
-    public void deletePipeline(Pipeline pipeline) {
-        getJdbcTemplate().update("", (Class<Object>) null);
+        getNamedParameterJdbcTemplate().update(DELETE_PIPELINE_BY_NAME, params);
     }
 
     @Override
     public Pipeline getPipelineByName(String name) {
-        return null;
+        Map<String, Object> params = new HashMap<>();
+
+        params.put("pipelineName", name);
+
+        Pipeline result = getNamedParameterJdbcTemplate().queryForObject(GET_PIPELINE_BY_NAME, params, (resultSet, i) -> {
+            Pipeline pipeline = new Pipeline();
+            pipeline.setId(resultSet.getInt("id_pipeline"));
+            pipeline.setName(resultSet.getString("name"));
+            pipeline.setDescription(resultSet.getString("description"));
+
+            return pipeline;
+        });
+
+        result.setTasks(taskDAO.getAllTasks(result));
+        result.setTransitions(transitionDAO.getTransitions(result));
+
+        return result;
     }
 }

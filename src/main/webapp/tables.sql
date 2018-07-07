@@ -4,18 +4,6 @@ CREATE TABLE `execution` (
   PRIMARY KEY (`id_execution`)
 );
 
-CREATE TABLE `execution_task` (
-  `id_execution` int(11) NOT NULL,
-  `id_task` int(11) NOT NULL,
-  `start_date` datetime DEFAULT NULL,
-  `end_date` datetime DEFAULT NULL,
-  `status` varchar(15) NOT NULL,
-  PRIMARY KEY (`id_execution`,`id_task`),
-  KEY `id_task` (`id_task`),
-  CONSTRAINT `execution_task_ibfk_1` FOREIGN KEY (`id_execution`) REFERENCES `execution` (`id_execution`),
-  CONSTRAINT `execution_task_ibfk_2` FOREIGN KEY (`id_task`) REFERENCES `task` (`id_task`)
-);
-
 CREATE TABLE `pipeline` (
   `id_pipeline` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(20) NOT NULL,
@@ -42,4 +30,16 @@ CREATE TABLE `transition` (
   KEY `transition_ibfk_2` (`next_task`),
   CONSTRAINT `transition_ibfk_1` FOREIGN KEY (`prev_task`) REFERENCES `task` (`id_task`) ON DELETE CASCADE,
   CONSTRAINT `transition_ibfk_2` FOREIGN KEY (`next_task`) REFERENCES `task` (`id_task`) ON DELETE CASCADE
+);
+
+CREATE TABLE `execution_task` (
+  `id_execution` int(11) NOT NULL,
+  `id_task` int(11) NOT NULL,
+  `start_date` datetime DEFAULT NULL,
+  `end_date` datetime DEFAULT NULL,
+  `status` varchar(15) NOT NULL,
+  PRIMARY KEY (`id_execution`,`id_task`),
+  KEY `id_task` (`id_task`),
+  CONSTRAINT `execution_task_ibfk_1` FOREIGN KEY (`id_execution`) REFERENCES `execution` (`id_execution`),
+  CONSTRAINT `execution_task_ibfk_2` FOREIGN KEY (`id_task`) REFERENCES `task` (`id_task`)
 );
